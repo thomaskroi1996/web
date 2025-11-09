@@ -11,11 +11,19 @@
 // stuck -> spawn enemy at current loc and respawn at random feature point
 
 function web(p) {
-  let level = 5;
   let notDead = true;
-  let featurePoints;
-  let buffer;
-  let player;
+  let featurePoints; //array that holds Vectors
+  let nFeaturePoints = 5;
+  let buffer; //
+  let player; //class
+  let cellSize;
+  let level = 1;
+  let zIndex = 0; //variable for moving along "time dimension", for animation
+  let zStep = 50;
+
+  let colorSchemes = new Map();
+  colorSchemes.set(0, p.floor(p.random(175, 255)));
+  colorSchemes.set(0, p.floor(p.random(0, 175)));
 
   // class Particle {
   //   constructor(x, y) {
@@ -28,7 +36,7 @@ function web(p) {
     constructor(x, y) {
       this.x = x;
       this.y = y;
-      this.speed = 5;
+      this.speed = 1;
       this.nParticles = 100;
       this.maxR = 500;
       this.dots = [];
@@ -40,7 +48,6 @@ function web(p) {
       p.strokeWeight(2);
       p.stroke(255);
       for (let i = 0; i < this.nParticles; i++) {
-        console.log(this.dots[i].x);
         p.point(this.dots[i].x, this.dots[i].y, 255);
       }
       this.dots = [];
@@ -74,36 +81,42 @@ function web(p) {
         this.y += (gy / len) * this.speed;
       }
 
-      if (p.keyIsDown(87)) this.y -= this.speed; // W
-      if (p.keyIsDown(83)) this.y += this.speed; // S
-      if (p.keyIsDown(65)) this.x -= this.speed; // A
-      if (p.keyIsDown(68)) this.x += this.speed; // D
+      if (p.keyIsDown(87)) this.y -= this.speed * 1.2; // W
+      if (p.keyIsDown(83)) this.y += this.speed * 1.2; // S
+      if (p.keyIsDown(65)) this.x -= this.speed * 1.2; // A
+      if (p.keyIsDown(68)) this.x += this.speed * 1.2; // D
 
-      this.x = p.constrain(this.x, 0, p.width - 1);
-      this.y = p.constrain(this.y, 0, p.height - 1);
+      this.x = p.constrain(this.x, 0, p.width - this.maxR);
+      this.y = p.constrain(this.y, 0, p.height - this.maxR);
 
       this.randomMove();
     }
 
     randomMove() {
-      this.x += p.random(-0.5, 0.5);
-      this.y += p.random(-0.5, 0.5);
+      this.x += p.random(-1, 1);
+      this.y += p.random(-1, 1);
     }
   }
 
-  p.setup = () => {
-    p.createCanvas(800, 800);
+  p.setupScene = () => {
+    let level = p.random(1, 10);
 
-    const cellSize = p.width / level;
-
+    cellSize = (p.width / level) * 2;
     featurePoints = p.getFeaturePoints(cellSize);
     buffer = p.drawScene(featurePoints, cellSize);
 
     //spawn player at random feature point
-    const spawnPoint = featurePoints[p.floor(p.random(featurePoints.length))];
+    let spawnPoint = featurePoints[p.floor(p.random(featurePoints.length))];
     player = new Player(spawnPoint.x, spawnPoint.y);
 
     buffer.loadPixels();
+  };
+
+  p.setup = () => {
+    p.createCanvas(400, 400);
+
+    p.setupScene();
+
     p.frameRate(60);
   };
 
@@ -118,19 +131,35 @@ function web(p) {
     player.draw();
   };
 
+  p.keyPressed = () => {
+    if (p.key === "r" || p.key === "R") {
+      p.setupScene();
+    }
+    if (p.keyCode === p.RIGHT_ARROW) {
+      zIndex += zStep;
+      console.log(zIndex);
+      p.drawScene(featurePoints, zIndex);
+    }
+    if (p.keyCode === p.LEFT_ARROW) {
+      zIndex -= zStep;
+      p.drawScene(featurePoints, zIndex || 0);
+    }
+  };
+
   p.getFeaturePoints = (cellSize) => {
     const points = [];
 
     const cols = p.ceil(p.width / cellSize);
     const rows = p.ceil(p.height / cellSize);
 
-    for (let y = 0; y < cols; y++) {
-      for (let x = 0; x < rows; x++) {
-        points.push({
-          x: p.floor(x * cellSize + p.random(cellSize)),
-          y: p.floor(y * cellSize + p.random(cellSize)),
-        });
-      }
+    for (let i = 0; i < nFeaturePoints; i++) {
+      points.push(
+        p.createVector(
+          p.random(p.width),
+          p.random(p.height),
+          p.random(p.width)
+        )
+      );
     }
 
     return points;
@@ -148,30 +177,56 @@ function web(p) {
   };
 
   //draw the Voronoi diagram scene
-  p.drawScene = (points, cellSize) => {
+  p.drawScene = (points, zIndex) => {
     const buf = p.createGraphics(p.width, p.height);
     buf.pixelDensity(1);
     buf.loadPixels();
 
     for (let y = 0; y < p.height; y++) {
       for (let x = 0; x < p.width; x++) {
-        let minDist = Infinity;
-        for (const pt of points) {
-          const dx = x - pt.x;
-          const dy = y - pt.y;
-          const d = p.sqrt(dx * dx + dy * dy);
-          if (d < minDist) minDist = d;
-        }
-        const c = p.map(minDist, 2, cellSize, 0, 255);
-        const i = 4 * (y * p.width + x);
-        buf.pixels[i] = c;
-        buf.pixels[i + 1] = c;
-        buf.pixels[i + 2] = c;
-        buf.pixels[i + 3] = c / (c + 1);
+        let distances = points.map((v) =>
+          p.dist(x, y, zIndex, v.x, v.y, v.z)
+        );
+        distances.sort((a, b) => a - b);
+
+        let r = p.map(distances[0], 0, 800, 0, 255);
+        let g = p.map(distances[1], 0, 800, 255, 0);
+        let b = p.map(distances[2], 0, 600, 255, 0);
+
+        let idx = 4 * (x + y * p.width);
+        buf.pixels[idx] = r;
+        buf.pixels[idx + 1] = g;
+        buf.pixels[idx + 2] = b;
+        buf.pixels[idx + 3] = 255;
       }
     }
 
     buf.updatePixels();
+
     return buf;
+  };
+
+  p.getColorValue = (minDist, cellSize, colorSchemes) => {
+    const c = p.map(
+      minDist,
+      2,
+      cellSize,
+      0,
+      colorSchemes.get(p.floor(p.random(0, colorSchemes.size - 1)))
+    );
+
+    if (p.random(1) >= 0.5) {
+      if (p.random(1) <= 0.7) {
+        return [c, 0, 255];
+      } else {
+        return [0, c, 150];
+      }
+    } else {
+      if (p.random(1) >= 0.5) {
+        return [0, 255, c];
+      } else {
+        return [255, 0, c];
+      }
+    }
   };
 }

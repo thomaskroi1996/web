@@ -12,8 +12,19 @@ function Web() {
     }
   };
 
+  const handleRKey = (e) => {
+    if (e.key === "r") {
+      console.log("r");
+      new p5(web, containerRef.current);
+    }
+  };
+
   return (
-    <div className="relative w-full h-screen bg-gray-100">
+    <div
+      tabIndex={0}
+      onKeyDown={handleRKey}
+      className="relative w-full h-screen bg-gray-100"
+    >
       {!started && (
         <div className="absolute inset-0 flex items-center justify-center">
           <button
