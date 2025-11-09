@@ -1,44 +1,32 @@
-//ideas:
+// TODO
 
-// every 10s you are shortly invincible
-// objects at feature points
-// warp cells
-// eventually use color
-// player particle swarm
-// enemies
-// every 10s reload voronoi map
-// stuck -> travel to random feature point
-// stuck -> spawn enemy at current loc and respawn at random feature point
+// better colormaps, and more variety (class?)
+// seperate into files
+// optimise 3D algorithm (put the 800 buffers into an array one time, and
+// then just render that instead of looping and calculating every time, this should be done only once in setup)
 
 function web(p) {
   let notDead = true;
   let featurePoints; //array that holds Vectors
-  let nFeaturePoints = 5;
+  let nFeaturePoints;
   let buffer; //
   let player; //class
   let cellSize;
   let level = 1;
   let zIndex = 0; //variable for moving along "time dimension", for animation
-  let zStep = 50;
+  let zStep = 10;
 
   let colorSchemes = new Map();
   colorSchemes.set(0, p.floor(p.random(175, 255)));
   colorSchemes.set(0, p.floor(p.random(0, 175)));
-
-  // class Particle {
-  //   constructor(x, y) {
-  //     this.x = x;
-  //     this.y = y;
-  //   }
-  // }
 
   class Player {
     constructor(x, y) {
       this.x = x;
       this.y = y;
       this.speed = 1;
-      this.nParticles = 100;
-      this.maxR = 500;
+      this.nParticles = 10;
+      this.maxR = 5;
       this.dots = [];
     }
 
@@ -99,7 +87,9 @@ function web(p) {
   }
 
   p.setupScene = () => {
-    let level = p.random(1, 10);
+    let level = p.random(1, 20);
+
+    nFeaturePoints = level;
 
     cellSize = (p.width / level) * 2;
     featurePoints = p.getFeaturePoints(cellSize);
@@ -108,8 +98,6 @@ function web(p) {
     //spawn player at random feature point
     let spawnPoint = featurePoints[p.floor(p.random(featurePoints.length))];
     player = new Player(spawnPoint.x, spawnPoint.y);
-
-    buffer.loadPixels();
   };
 
   p.setup = () => {
@@ -122,8 +110,19 @@ function web(p) {
 
   p.draw = () => {
     p.image(buffer, 0, 0);
+    buffer.loadPixels();
 
     player.move();
+
+    if (p.keyIsDown(p.RIGHT_ARROW)) {
+      zIndex += 1;
+      buffer = p.drawScene(featurePoints, zIndex);
+    }
+
+    if (p.keyIsDown(p.LEFT_ARROW)) {
+      zIndex -= 1;
+      buffer = p.drawScene(featurePoints, zIndex || 0);
+    }
 
     // check stuck
     // check dead
@@ -137,12 +136,11 @@ function web(p) {
     }
     if (p.keyCode === p.RIGHT_ARROW) {
       zIndex += zStep;
-      console.log(zIndex);
-      p.drawScene(featurePoints, zIndex);
+      buffer = p.drawScene(featurePoints, zIndex);
     }
     if (p.keyCode === p.LEFT_ARROW) {
       zIndex -= zStep;
-      p.drawScene(featurePoints, zIndex || 0);
+      buffer = p.drawScene(featurePoints, zIndex || 0);
     }
   };
 
@@ -189,13 +187,13 @@ function web(p) {
         );
         distances.sort((a, b) => a - b);
 
-        let r = p.map(distances[0], 0, 800, 0, 255);
-        let g = p.map(distances[1], 0, 800, 255, 0);
-        let b = p.map(distances[2], 0, 600, 255, 0);
+        let r = p.map(distances[0], 0, 400, 0, 255);
+        let g = p.map(distances[1], 0, 400, 255, 0);
+        let b = p.map(distances[2], 0, 400, 255, 0);
 
         let idx = 4 * (x + y * p.width);
         buf.pixels[idx] = r;
-        buf.pixels[idx + 1] = g;
+        buf.pixels[idx + 1] = r;
         buf.pixels[idx + 2] = b;
         buf.pixels[idx + 3] = 255;
       }
